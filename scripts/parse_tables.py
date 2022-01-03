@@ -6,16 +6,16 @@ import json
 
 class DataFrame:
 
-    def __init__(self):
-        self.df = pd.read_excel('../data/patients_update.xlsx')
+    def __init__(self, path_to_df: str, path_to_label_frequency_file: str, path_to_mapping: str):
+        self.df = pd.read_excel(path_to_df, engine='openpyxl')
         self.pmcs = list(set(self.df.pmcs.to_list()))
         self.links = [f'https://www.ncbi.nlm.nih.gov/pmc/articles/{x}/' for x in self.pmcs]
-        self.labels = pd.read_excel('../data/label_frequency_update_october2021.xlsx', header=None)
-        self.mapping = json.load(open('../data/final_mapping.json'))
+        self.labels = pd.read_excel(path_to_label_frequency_file, header=None, engine='openpyxl')
+        self.mapping = json.load(open(path_to_mapping))
 
     def get_all_tables(self) -> Dict[str, List[pd.DataFrame]]:
         tables = {pmc: [] for pmc in self.pmcs}
-        for link, pmc in tqdm(zip(self.links, self.pmcs)):
+        for link, pmc in tqdm(zip(self.links, self.pmcs), total=len(self.pmcs)):
             r = requests.get(link)
             try:
                 t = pd.read_html(r.text, header=0)
@@ -32,53 +32,61 @@ class DataFrame:
         res.extend(labs)
         return res
 
-    def get_tables(self, table: pd.DataFrame) -> pd.DataFrame:
-
-        column_names = table.columns
-
-        if len(set(column_names) & set(list(self.mapping.keys()))) > 1:
-            columns = [col for col in table.columns if col in self.mapping]
-            table = table[columns]
-            table.columns = [self.mapping[col] for col in table.columns]
-            return table
-
-        elif len(set(table[table.columns[0]].to_list()) & set(list(self.mapping.keys()))) > 1:
-            table = table.T
-            table.columns = table.iloc[0]
-            table = table[1:]
-            columns = [col for col in table.columns.to_list() if col in self.mapping]
-            table = table[columns]
-            table.columns = [self.mapping[col] for col in table.columns]
-            return table
-
-        return pd.DataFrame()
-
-
     def get_final_dataset(self, labels: List[str], tables: Dict[str, List[pd.DataFrame]]) -> pd.DataFrame:
 
         df = pd.DataFrame(columns=labels)
 
         for pmc in self.pmcs:
-            patients_histories = self.df[self.df.pmcs == pmc]['patient_description'].to_list()
+            rows = self.df[self.df.pmcs == pmc]['patient_description'].to_list()
             tab = tables[pmc]
-            result_tables = []
-
+            t = []
             for table in tab:
-                table = self.get_tables(table=table)
-                if len(table) == len(patients_histories):
-                    result_tables.append(table)
-
-            for i, patient in enumerate(patients_histories):
-                row = {c: None for c in df.columns}
-                row['pmcs'] = pmc
-                row['patient_description'] = patient
-                for table in result_tables:
+                colnames = table.columns
+                if len(set(colnames) & set(list(self.mapping.keys()))) > 1:
+                    columns = [col for col in table.columns if col in self.mapping]
+                    table = table[columns]
+                    table.columns = [self.mapping[col] for col in table.columns]
+                    if len(table) == len(rows):
+                        t.append(table)
+                elif len(set(table[table.columns[0]].to_list()) & set(list(self.mapping.keys()))) > 1:
+                    table = table.T
+                    table.columns = table.iloc[0]
+                    table = table[1:]
+                    columns = [col for col in table.columns.to_list() if col in self.mapping]
+                    table = table[columns]
+                    table.columns = [self.mapping[col] for col in table.columns]
+                    if len(table) == len(rows):
+                        t.append(table)
+            for i, patient in enumerate(rows):
+                dict_series = {c: None for c in df.columns}
+                dict_series['pmcs'] = pmc
+                dict_series['patient_description'] = patient
+                for table in t:
                     row = table.iloc[i].squeeze().to_dict()
-                    for k, v in row.items():
+                    for k, v in dict_series.items():
                         if k in row and not v:
-                            row[k] = row[k]
+                            dict_series[k] = row[k]
                         elif k in row and v:
-                            row[k] = [v].append(row[k])
-                df = df.append(row, ignore_index=True)
-
+                            dict_series[k] = [v].append(row[k])
+                df = df.append(dict_series, ignore_index=True)
         return df
+
+    def create_df(self) -> pd.DataFrame:
+        tables = self.get_all_tables()
+        labels = self.get_labels()
+        dataframe = self.get_final_dataset(
+            labels=labels,
+            tables=tables
+        )
+        return dataframe
+
+
+if __name__ == "__main__":
+    d = DataFrame(
+        path_to_df='data/patients_update.xlsx',
+        path_to_label_frequency_file='data/label_frequency_update_october2021.xlsx',
+        path_to_mapping='data/final_mapping.json'
+    )
+    data = d.create_df()
+    data.to_excel('data/parsed_df.xlsx', index=False, engine='openpyxl')
+
