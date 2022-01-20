@@ -2,8 +2,8 @@ import pandas as pd
 import json
 
 def main():
-    df1 = pd.read_excel('../data/thesis_labels.xlsx')
-    df2 = pd.read_excel('../data/label_mapping_new.xlsx')
+    df1 = pd.read_excel('../data/thesis_labels.xlsx', engine='openpyxl')
+    df2 = pd.read_excel('../data/label_mapping_new.xlsx', engine='openpyxl')
 
     df_list = df1.values.tolist()
     ultimate_dict = dict()
