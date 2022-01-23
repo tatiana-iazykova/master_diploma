@@ -3,6 +3,9 @@ import requests
 from tqdm import tqdm
 from typing import List, Dict
 import json
+import os
+from scripts.utils import get_argparse
+
 
 class DataFrame:
 
@@ -82,11 +85,15 @@ class DataFrame:
 
 
 if __name__ == "__main__":
+    parser = get_argparse()
+    args = parser.parse_args()
+
     d = DataFrame(
-        path_to_df='data/patients_update.xlsx',
-        path_to_label_frequency_file='data/label_frequency_update_october2021.xlsx',
-        path_to_mapping='data/final_mapping.json'
+        path_to_df=args.path_to_df,
+        path_to_label_frequency_file=args.label_frequency_file,
+        path_to_mapping=args.path_to_mapping
     )
     data = d.create_df()
-    data.to_excel('data/parsed_df.xlsx', index=False, engine='openpyxl')
+    output_dir = os.path.join(args.output_dir, "parsed_df.xlsx")
+    data.to_excel(output_dir, index=False, engine='openpyxl')
 
