@@ -4,8 +4,7 @@ from tqdm import tqdm
 from typing import List, Dict
 import json
 import os
-from scripts.utils import get_argparse
-
+from utils import get_argparse
 
 class DataFrame:
 

@@ -14,17 +14,17 @@ def get_argparse() -> argparse.ArgumentParser:
     parser.add_argument(
         "--label_frequency_file",
         type=str,
-        help="path to label frequency file",
+        help="path to label frequency file (excel)",
     )
     parser.add_argument(
         "--path_to_df",
         type=str,
-        help="path to original dataframe",
+        help="path to original dataframe (excel)",
     )
     parser.add_argument(
         "--path_to_mapping",
         type=str,
-        help="path to mapping",
+        help="path to json mapping",
     )
 
     parser.add_argument(
